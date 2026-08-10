@@ -1,0 +1,13 @@
+version = getSubprojectVersion(project)
+
+loom {
+	accessWidenerPath = file("src/main/resources/fabric-resource-loader-v1.accesswidener")
+}
+
+moduleDependencies(project, ['fabric-api-base'])
+
+rootProject.allprojects.each { p ->
+	if (p.extensions.findByName("loom") == null) {
+		return // Skip over the meta projects
+	}
+}

@@ -1,0 +1,7 @@
+version = getSubprojectVersion(project)
+
+loom {
+	accessWidenerPath = file("src/main/resources/fabric-game-rule-api-v1.accesswidener")
+}
+
+moduleDependencies(project, ['fabric-api-base'])

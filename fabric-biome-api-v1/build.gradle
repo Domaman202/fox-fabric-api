@@ -1,0 +1,24 @@
+version = getSubprojectVersion(project)
+
+loom {
+	accessWidenerPath = file("src/main/resources/fabric-biome-api-v1.accesswidener")
+}
+
+fabricApi {
+	configureDataGeneration {
+		addToResources = false
+		strictValidation = true
+	}
+}
+
+loom {
+	runs {
+		datagen {
+			name "Data Generation"
+			ideConfigGenerated = true
+		}
+	}
+}
+
+// Ensure the worldgen JSONs are re-created to ensure the data-gen still works
+generateResources.dependsOn runDatagen

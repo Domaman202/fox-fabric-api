@@ -1,0 +1,24 @@
+{
+  "required": true,
+  "package": "net.fabricmc.fabric.mixin.event.lifecycle",
+  "compatibilityLevel": "JAVA_21",
+  "mixins": [
+    "ChunkHolderAccessor",
+    "ChunkStatusTasksMixin",
+    "LevelMixin",
+    "LivingEntityMixin",
+    "MinecraftServerMixin",
+    "NewChunkHolderMixin",
+    "PlayerListMixin",
+    "ReloadableServerResourcesMixin",
+    "ServerLevelMixin",
+    "ServerWorldServerEntityHandlerMixin"
+  ],
+  "server": [
+    "server.LevelChunkMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1,
+    "maxShiftBy": 3
+  }
+}
