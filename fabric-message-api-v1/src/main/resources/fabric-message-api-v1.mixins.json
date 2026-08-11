@@ -3,6 +3,7 @@
   "package": "net.fabricmc.fabric.mixin.message",
   "compatibilityLevel": "JAVA_21",
   "mixins": [
+    "ChatDecoratorAccessor",
     "MinecraftServerMixin",
     "PlayerListMixin"
   ],

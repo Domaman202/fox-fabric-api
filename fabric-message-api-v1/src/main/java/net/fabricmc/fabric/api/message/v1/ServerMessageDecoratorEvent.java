@@ -17,13 +17,21 @@
 package net.fabricmc.fabric.api.message.v1;
 
 import java.util.Objects;
+import java.util.concurrent.CompletableFuture;
 
+import net.fabricmc.fabric.mixin.message.ChatDecoratorAccessor;
+
+import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.network.chat.ChatDecorator;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 
 import net.fabricmc.fabric.api.event.Event;
 import net.fabricmc.fabric.api.event.EventFactory;
+
+import net.minecraft.server.level.ServerPlayer;
+
+import org.jspecify.annotations.Nullable;
 
 /**
  * A class for registering a {@link ChatDecorator}. Check the message decorator documentation
@@ -73,14 +81,21 @@ public final class ServerMessageDecoratorEvent {
 	 */
 	public static final Identifier STYLING_PHASE = Identifier.fromNamespaceAndPath("fabric", "styling");
 
-	public static final Event<ChatDecorator> EVENT = EventFactory.createWithPhases(ChatDecorator.class, decorators -> (sender, message) -> {
-		Component decorated = message;
-
-		for (ChatDecorator decorator : decorators) {
-			decorated = handle(decorator.decorate(sender, decorated), decorator);
+	public static final Event<ChatDecorator> EVENT = EventFactory.createWithPhases(ChatDecorator.class, decorators -> new ChatDecorator() {
+		@Override
+		public Component decorate(@Nullable ServerPlayer sender, Component message) {
+			Component decorated = message;
+			for (ChatDecorator decorator : decorators)
+				decorated = handle(decorator.decorate(sender, decorated), decorator);
+			return decorated;
 		}
 
-		return decorated;
+		public CompletableFuture<Component> decorate(@Nullable ServerPlayer sender, @Nullable CommandSourceStack commandSourceStack, Component message) {
+			Component decorated = message;
+			for (ChatDecorator decorator : decorators)
+				decorated = handle(((ChatDecoratorAccessor) (Object) decorator).invokeDecorate(sender, commandSourceStack, decorated).join(), decorator);
+			return CompletableFuture.completedFuture(decorated);
+		}
 	}, CONTENT_PHASE, Event.DEFAULT_PHASE, STYLING_PHASE);
 
 	private static <T extends Component> T handle(T decorated, ChatDecorator decorator) {
