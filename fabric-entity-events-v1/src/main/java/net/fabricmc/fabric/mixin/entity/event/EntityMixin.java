@@ -39,7 +39,8 @@ abstract class EntityMixin {
 	private Consumer<Entity> afterWorldChanged(Consumer<Entity> teleportComplete) {
 		ServerLevel originLevel = (ServerLevel) this.level;
 		return (entity) -> {
-			teleportComplete.accept(entity);
+			if (teleportComplete != null)
+				teleportComplete.accept(entity);
 			ServerEntityWorldChangeEvents.AFTER_ENTITY_CHANGE_WORLD.invoker().afterChangeWorld((Entity) (Object) this, entity, originLevel, (ServerLevel) entity.level());
 		};
 	}
