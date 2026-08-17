@@ -16,6 +16,9 @@
 
 package net.fabricmc.fabric.mixin.networking;
 
+import net.fabricmc.fabric.api.FabricPlugin;
+
+import org.bukkit.Bukkit;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -57,7 +60,7 @@ public abstract class ServerCommonPacketListenerImplMixin implements NetworkHand
 				ci.cancel();
 			}
 		} catch (RunningOnDifferentThreadException e) {
-			this.server.packetProcessor().scheduleIfPossible((ServerCommonPacketListenerImpl) (Object) this, packet);
+			Bukkit.getGlobalRegionScheduler().run(FabricPlugin.getInstance(), task -> packet.handle((ServerCommonPacketListenerImpl) (Object) this));
 			ci.cancel();
 		}
 	}
