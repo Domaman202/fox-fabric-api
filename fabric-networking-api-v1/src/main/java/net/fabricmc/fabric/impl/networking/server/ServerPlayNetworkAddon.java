@@ -22,6 +22,8 @@ import java.util.Objects;
 
 import net.fabricmc.fabric.api.FabricPlugin;
 
+import net.fabricmc.fabric.mixin.networking.accessor.ServerPlayerAccessor;
+
 import net.minecraft.network.Connection;
 import net.minecraft.network.ConnectionProtocol;
 import net.minecraft.network.protocol.Packet;
@@ -74,7 +76,7 @@ public final class ServerPlayNetworkAddon extends AbstractChanneledNetworkAddon<
 
 	@Override
 	protected boolean isOnReceiveThread() {
-		return server.packetProcessor().isSameThread();
+		return ((ServerPlayerAccessor) this.context.player()).invokeGetBukkitEntity().packetProcessor.isSameThread();
 	}
 
 	@Override

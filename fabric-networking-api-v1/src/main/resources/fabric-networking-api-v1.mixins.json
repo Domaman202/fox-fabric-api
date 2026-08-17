@@ -29,7 +29,8 @@
     "accessor.PacketDecoderAccessor",
     "accessor.PacketEncoderAccessor",
     "accessor.ServerCommonPacketListenerImplAccessor",
-    "accessor.ServerLoginPacketListenerImplAccessor"
+    "accessor.ServerLoginPacketListenerImplAccessor",
+    "accessor.ServerPlayerAccessor"
   ],
   "injectors": {
     "defaultRequire": 1

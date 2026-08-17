@@ -18,7 +18,13 @@ package net.fabricmc.fabric.mixin.networking;
 
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
+
+import net.fabricmc.fabric.mixin.networking.accessor.ServerPlayerAccessor;
+
+import net.minecraft.server.level.ServerPlayer;
+
 import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -43,6 +49,8 @@ import net.fabricmc.fabric.impl.networking.server.ServerPlayNetworkAddon;
 // We want to apply a bit earlier than other mods which may not use us in order to prevent refCount issues
 @Mixin(value = ServerGamePacketListenerImpl.class, priority = 999)
 abstract class ServerGamePacketListenerImplMixin extends ServerCommonPacketListenerImpl implements NetworkHandlerExtensions {
+	@Shadow
+	public ServerPlayer player;
 	@Unique
 	private ServerPlayNetworkAddon addon;
 
@@ -67,7 +75,7 @@ abstract class ServerGamePacketListenerImplMixin extends ServerCommonPacketListe
 				ci.cancel();
 			}
 		} catch (RunningOnDifferentThreadException e) {
-			this.server.packetProcessor().scheduleIfPossible(this, packet);
+			((ServerPlayerAccessor) this.player).invokeGetBukkitEntity().packetProcessor.scheduleIfPossible(this, packet);
 			ci.cancel();
 		}
 	}
