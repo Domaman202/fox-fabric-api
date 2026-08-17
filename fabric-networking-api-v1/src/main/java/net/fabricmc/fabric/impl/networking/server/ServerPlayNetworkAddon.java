@@ -20,6 +20,8 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 
+import ca.spottedleaf.moonrise.common.util.TickThread;
+
 import net.fabricmc.fabric.api.FabricPlugin;
 
 import net.fabricmc.fabric.mixin.networking.accessor.ServerPlayerAccessor;
@@ -43,6 +45,7 @@ import net.fabricmc.fabric.impl.networking.NetworkingImpl;
 import net.fabricmc.fabric.impl.networking.RegistrationPayload;
 
 import org.bukkit.Bukkit;
+import org.bukkit.entity.Entity;
 
 public final class ServerPlayNetworkAddon extends AbstractChanneledNetworkAddon<ServerPlayNetworking.PlayPayloadHandler<?>> {
 	private final ServerGamePacketListenerImpl handler;
@@ -76,7 +79,7 @@ public final class ServerPlayNetworkAddon extends AbstractChanneledNetworkAddon<
 
 	@Override
 	protected boolean isOnReceiveThread() {
-		return ((ServerPlayerAccessor) this.context.player()).invokeGetBukkitEntity().packetProcessor.isSameThread();
+		return Bukkit.isOwnedByCurrentRegion(((ServerPlayerAccessor) this.context.player()).invokeGetBukkitEntity());
 	}
 
 	@Override

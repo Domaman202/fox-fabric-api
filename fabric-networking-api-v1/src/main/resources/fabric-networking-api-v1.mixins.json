@@ -28,6 +28,7 @@
     "accessor.LevelAccessor",
     "accessor.PacketDecoderAccessor",
     "accessor.PacketEncoderAccessor",
+    "accessor.PacketProcessorAccessor",
     "accessor.ServerCommonPacketListenerImplAccessor",
     "accessor.ServerLoginPacketListenerImplAccessor",
     "accessor.ServerPlayerAccessor"

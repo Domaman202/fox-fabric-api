@@ -19,8 +19,11 @@ package net.fabricmc.fabric.mixin.networking;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 
+import net.fabricmc.fabric.api.FabricPlugin;
+import net.fabricmc.fabric.mixin.networking.accessor.PacketProcessorAccessor;
 import net.fabricmc.fabric.mixin.networking.accessor.ServerPlayerAccessor;
 
+import net.minecraft.network.PacketProcessor;
 import net.minecraft.server.level.ServerPlayer;
 
 import org.spongepowered.asm.mixin.Mixin;
@@ -45,6 +48,8 @@ import net.fabricmc.fabric.impl.networking.NetworkHandlerExtensions;
 import net.fabricmc.fabric.impl.networking.UntrackedNetworkHandler;
 import net.fabricmc.fabric.impl.networking.server.ServerNetworkingImpl;
 import net.fabricmc.fabric.impl.networking.server.ServerPlayNetworkAddon;
+
+import java.util.Arrays;
 
 // We want to apply a bit earlier than other mods which may not use us in order to prevent refCount issues
 @Mixin(value = ServerGamePacketListenerImpl.class, priority = 999)
@@ -75,7 +80,7 @@ abstract class ServerGamePacketListenerImplMixin extends ServerCommonPacketListe
 				ci.cancel();
 			}
 		} catch (RunningOnDifferentThreadException e) {
-			((ServerPlayerAccessor) this.player).invokeGetBukkitEntity().packetProcessor.scheduleIfPossible(this, packet);
+			((ServerPlayerAccessor) this.player).invokeGetBukkitEntity().getScheduler().run(FabricPlugin.getInstance(), task -> packet.handle(this), null);
 			ci.cancel();
 		}
 	}
