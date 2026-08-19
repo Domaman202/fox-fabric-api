@@ -111,11 +111,11 @@ allprojects {
 	project.ext.setProperty('fabric.loom.disableMinecraftVerification', 'true')
 
 	dependencies {
-		minecraft ":folia:1.21.11"
+		minecraft ":canvas:1.21.11"
 		mappings loom.officialMojangMappings()
 		modApi "net.fabricmc:fabric-loader:${project.loader_version}"
 
-		modImplementation(rootProject.files("libs/folia-nomc-1.21.11.jar"))
+		modImplementation(rootProject.files("libs/canvas-nomc-1.21.11.jar"))
 		modImplementation("dev.folia:folia-api:1.21.11-R0.1-SNAPSHOT")
 	}
 

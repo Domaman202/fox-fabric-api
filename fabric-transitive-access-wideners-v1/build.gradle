@@ -26,7 +26,7 @@ tasks.register('generateAccessWidener') {
 		lines.add("")
 		lines.addAll(file("template.accesswidener").text.lines().toList())
 
-		Path commonJar = project.projectDir.toPath().resolve("../libs/folia-1.21.11.jar")
+		Path commonJar = project.projectDir.toPath().resolve("../libs/canvas-1.21.11.jar")
 
 		FileSystems.newFileSystem(URI.create("jar:${commonJar.toUri()}"), [create: false]).withCloseable { fs ->
 			generateBlockConstructors(lines, fs)

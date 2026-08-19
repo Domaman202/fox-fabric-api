@@ -20,6 +20,9 @@ import java.util.Map;
 
 import com.llamalad7.mixinextras.injector.ModifyExpressionValue;
 import com.llamalad7.mixinextras.sugar.Local;
+
+import net.minecraft.world.level.block.entity.BlockEntityType;
+
 import org.jspecify.annotations.Nullable;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -37,6 +40,8 @@ import net.minecraft.world.level.chunk.LevelChunk;
 
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerBlockEntityEvents;
 
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
+
 /**
  * This is a server only mixin for good reason:
  * Since all block entity tracking is now on the world chunk, we inject into WorldChunk.
@@ -49,9 +54,9 @@ abstract class LevelChunkMixin {
 
 	@ModifyExpressionValue(
 			method = "setBlockEntity",
-			at = @At(value = "INVOKE", target = "Ljava/util/Map;put(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;")
+			at = @At(value = "INVOKE", target = "Lnet/minecraft/world/level/chunk/LevelChunk;canvas$setBlockEntityInBuckets(IIILnet/minecraft/world/level/block/entity/BlockEntity;)Lnet/minecraft/world/level/block/entity/BlockEntity;")
 	)
-	private <V> V onLoadBlockEntity(V removedBlockEntity, BlockEntity blockEntity) {
+	private BlockEntity onLoadBlockEntity(BlockEntity removedBlockEntity, BlockEntity blockEntity) {
 		// Only fire the load event if the block entity has actually changed
 		if (blockEntity != null && blockEntity != removedBlockEntity) {
 			if (this.getLevel() instanceof ServerLevel) {
@@ -69,17 +74,15 @@ abstract class LevelChunkMixin {
 		}
 	}
 
-	// Use the slice to not redirect codepath where block entity is loaded
-	@Redirect(method = "getBlockEntity(Lnet/minecraft/core/BlockPos;Lnet/minecraft/world/level/chunk/LevelChunk$EntityCreationType;)Lnet/minecraft/world/level/block/entity/BlockEntity;", at = @At(value = "INVOKE", target = "Ljava/util/Map;remove(Ljava/lang/Object;)Ljava/lang/Object;"),
-			slice = @Slice(from = @At(value = "INVOKE", target = "Lnet/minecraft/world/level/chunk/LevelChunk;createBlockEntity(Lnet/minecraft/core/BlockPos;)Lnet/minecraft/world/level/block/entity/BlockEntity;")))
-	private <K, V> Object onRemoveBlockEntity(Map<K, V> map, K key) {
-		@Nullable final V removed = map.remove(key);
 
-		if (removed != null && this.getLevel() instanceof ServerLevel) {
-			ServerBlockEntityEvents.BLOCK_ENTITY_UNLOAD.invoker().onUnload((BlockEntity) removed, (ServerLevel) this.getLevel());
+	@Inject(
+			method = "getBlockEntity(Lnet/minecraft/core/BlockPos;Lnet/minecraft/world/level/chunk/LevelChunk$EntityCreationType;)Lnet/minecraft/world/level/block/entity/BlockEntity;",
+			at = @At(value = "INVOKE", target = "Lnet/minecraft/world/level/chunk/LevelChunk;canvas$removeFromBuckets(III)Lnet/minecraft/world/level/block/entity/BlockEntity;", shift = At.Shift.AFTER)
+	)
+	private void onRemoveBlockEntity(BlockPos pos, LevelChunk.EntityCreationType creationType, CallbackInfoReturnable<BlockEntity> cir, @Local(ordinal = 0) BlockEntity blockEntity) {
+		if (blockEntity != null && this.getLevel() instanceof ServerLevel serverLevel) {
+			ServerBlockEntityEvents.BLOCK_ENTITY_UNLOAD.invoker().onUnload(blockEntity, serverLevel);
 		}
-
-		return removed;
 	}
 
 	@Inject(method = "removeBlockEntity", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/level/block/entity/BlockEntity;setRemoved()V"))
