@@ -33,15 +33,14 @@ import net.fabricmc.fabric.api.registry.LandPathNodeTypesRegistry;
 // Applied a bit earlier than other mods to ensure changes and optimizations to default vanilla behavior
 @Mixin(value = WalkNodeEvaluator.class, priority = 999)
 public class WalkNodeEvaluatorMixin {
-	/**
-	 * Overrides the node type for the specified position, if the position is a direct target in a path.
-	 */
-	@Inject(method = "getPathTypeFromState", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/level/block/state/BlockState;getBlock()Lnet/minecraft/world/level/block/Block;"), cancellable = true)
-	private static void getCommonNodeType(BlockGetter world, BlockPos pos, CallbackInfoReturnable<PathType> cir, @Local BlockState state) {
-		PathType nodeType = LandPathNodeTypesRegistry.getPathNodeType(state, world, pos, false);
-
-		if (nodeType != null) {
-			cir.setReturnValue(nodeType);
+	@Inject(method = "getPathTypeFromState", at = @At("HEAD"), cancellable = true)
+	private static void getCommonNodeType(BlockGetter world, BlockPos pos, CallbackInfoReturnable<PathType> cir) {
+		BlockState state = ((BlockGetterAccessor) world).invokeGetBlockStateIfLoaded(pos);
+		if (state != null) {
+			PathType nodeType = LandPathNodeTypesRegistry.getPathNodeType(state, world, pos, false);
+			if (nodeType != null) {
+				cir.setReturnValue(nodeType);
+			}
 		}
 	}
 }
