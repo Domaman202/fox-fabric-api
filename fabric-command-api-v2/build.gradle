@@ -1,7 +1,0 @@
-version = getSubprojectVersion(project)
-
-moduleDependencies(project, ['fabric-api-base'])
-
-loom {
-	accessWidenerPath = file('src/main/resources/fabric-command-api-v2.accesswidener')
-}
