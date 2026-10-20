@@ -2,9 +2,9 @@ plugins {
 	id "java-library"
 	id "eclipse"
 	id "maven-publish"
-	id "fabric-loom" version "1.13.3" apply false
+	id "net.fabricmc.fabric-loom" version "1.16.2" apply false
 	id "me.modmuss50.remotesign" version "0.5.0" apply false
-	id "me.modmuss50.mod-publish-plugin" version "1.1.0"
+	id "me.modmuss50.mod-publish-plugin" version "2.0.1"
 }
 
 def branchProvider = providers.of(GitBranchValueSource.class) {}
@@ -22,15 +22,17 @@ def debugArgs = [
 	"-Dmixin.debug.verify=true",
 	//"-Dmixin.debug.strict=true",
 	"-Dmixin.debug.countInjections=true",
+	"-Dfabric.resource_loader.debug.reloaders_identity.strict=true",
+	"-XX:+UseZGC",
+	"-XX:+UseCompactObjectHeaders",
+	"-XX:+AlwaysPreTouch",
+	"-XX:+UseStringDeduplication"
 ]
 
-
+import groovy.json.JsonSlurper
+import org.apache.commons.codec.digest.DigestUtils
 import net.fabricmc.fabric.impl.build.CommitHashValueSource
 import net.fabricmc.fabric.impl.build.GitBranchValueSource
-import net.fabricmc.loom.api.mappings.layered.MappingsNamespace
-import net.fabricmc.loom.configuration.providers.minecraft.MinecraftProvider
-import org.apache.commons.codec.digest.DigestUtils
-
 import java.net.http.HttpClient
 import java.net.http.HttpRequest
 import java.net.http.HttpResponse
@@ -54,7 +56,7 @@ def getSubprojectVersion(Project project) {
 }
 
 def moduleDependencies(project, List<String> depNames) {
-	def deps = depNames.iterator().collect { project.dependencies.project(path: ":$it", configuration: 'namedElements') }
+	def deps = depNames.iterator().collect { project.dependencies.project(path: ":$it") }
 
 	project.dependencies {
 		deps.each {
@@ -75,7 +77,6 @@ def moduleDependencies(project, List<String> depNames) {
 allprojects {
 	group = "net.fabricmc.fabric-api"
 
-	apply plugin: "maven-publish"
 	apply plugin: "me.modmuss50.remotesign"
 
 	tasks.withType(GenerateModuleMetadata).configureEach {
@@ -87,20 +88,10 @@ allprojects {
 	}
 
 	apply plugin: "java-library"
-	apply plugin: "fabric-loom"
-
-	repositories {
-		flatDir {
-			dirs 'libs'
-		}
-
-		maven {
-			url = "https://repo.papermc.io/repository/maven-public/"
-		}
-	}
+	apply plugin: "net.fabricmc.fabric-loom"
 
 	tasks.withType(JavaCompile).configureEach {
-		it.options.release = 21
+		it.options.release = 25
 	}
 
 	java {
@@ -108,19 +99,28 @@ allprojects {
 		withSourcesJar()
 	}
 
-	project.ext.setProperty('fabric.loom.disableMinecraftVerification', 'true')
+	allprojects.each { p ->
+		if (metaProjects.contains(p.name)) {
+			return
+		}
 
-	dependencies {
-		minecraft ":canvas:1.21.11"
-		mappings loom.officialMojangMappings()
-		modApi "net.fabricmc:fabric-loader:${project.loader_version}"
-
-		modImplementation(rootProject.files("libs/canvas-nomc-1.21.11.jar"))
-		modImplementation("dev.folia:folia-api:1.21.11-R0.1-SNAPSHOT")
+		loom.mods.register(p.name) {
+			sourceSet p.sourceSets.main
+		}
 	}
 
-	test {
-		useJUnitPlatform()
+	repositories {
+		flatDir {
+			dirs new File(rootProject.projectDir, 'libs')
+		}
+	}
+
+	dependencies {
+		minecraft "com.mojang:minecraft:$rootProject.minecraft_version"
+//		minecraft ":purpur:26.2"
+		api "net.fabricmc:fabric-loader:${project.loader_version}"
+		implementation ":purpur:26.2-nomc"
+		implementation ":purpur-api:26.2"
 	}
 
 	tasks.withType(ProcessResources).configureEach {
@@ -136,9 +136,11 @@ allprojects {
 		reproducibleFileOrder = true
 	}
 
+	// Run this task after updating minecraft to regenerate any required resources
 	tasks.register('generateResources') {
 		group = "fabric"
 	}
+
 
 	String archivesName = project.base.archivesName.get()
 	[jar, sourcesJar].each {
@@ -147,42 +149,9 @@ allprojects {
 		}
 	}
 
-	tasks.register('enigma', net.fabricmc.loom.task.tool.ModEnigmaTask) {
-		def dir = file('src/main/resources')
-		mappingFile = new File(dir, project.name + '.mapping')
-	}
-
 	// Apply to each valid subproject.
 	apply from: rootProject.file('gradle/package-info.gradle')
 	apply from: rootProject.file('gradle/validate-annotations.gradle')
-}
-
-loom {
-	accessWidenerPath = file("gradle/javadoc.accesswidener")
-	runtimeOnlyLog4j = true
-
-	runs.configureEach {
-		vmArgs(debugArgs)
-	}
-
-	setMinecraftProvider(new MinecraftProvider(null, null) {
-		@Override
-		List<java.nio.file.Path> getMinecraftJars() {
-			return List.of(Path.of("libs/folia-1.21.11.jar"))
-		}
-
-		@Override
-		MappingsNamespace getOfficialNamespace() {
-			return MappingsNamespace.OFFICIAL
-		}
-	})
-}
-
-allprojects.each { p ->
-	if (metaProjects.contains(p.name)) return
-	loom.mods.register(p.name) {
-		sourceSet p.sourceSets.main
-	}
 }
 
 // Apply auxiliary buildscripts to submodules
@@ -190,56 +159,64 @@ allprojects.each { p ->
 apply from: "gradle/module-validation.gradle"
 apply from: "gradle/module-versioning.gradle"
 
+def addPomMetadataInformation(Project project, MavenPom pom) {
+	def modJsonFile = project.file("src/main/resources/fabric.mod.json")
+
+	if (!modJsonFile.exists()) {
+		modJsonFile = project.file("src/client/resources/fabric.mod.json")
+	}
+
+	def modJson = new JsonSlurper().parse(modJsonFile)
+	pom.name = modJson.name
+	pom.url = "https://github.com/FabricMC/fabric/tree/HEAD/${project.rootDir.relativePath(project.projectDir)}"
+	pom.description = modJson.description
+	pom.licenses {
+		license {
+			name = "Apache-2.0"
+			url = "https://github.com/FabricMC/fabric/blob/HEAD/LICENSE"
+		}
+	}
+	pom.developers {
+		developer {
+			name = "FabricMC"
+			url = "https://fabricmc.net/"
+		}
+	}
+	pom.scm {
+		connection = "scm:git:https://github.com/FabricMC/fabric.git"
+		url = "https://github.com/FabricMC/fabric"
+		developerConnection = "scm:git:git@github.com:FabricMC/fabric.git"
+	}
+	pom.issueManagement {
+		system = "GitHub"
+		url = "https://github.com/FabricMC/fabric/issues"
+	}
+}
+
 subprojects {
-	if (metaProjects.contains(it.name)) return
+	if (metaProjects.contains(it.name)) {
+		return
+	}
 
 	base {
 		archivesName = project.name
 	}
-
-	def projectName = it.name
-	def projectVersion = getSubprojectVersion(it)
-
-	tasks.withType(PublishToMavenRepository).configureEach {
-		onlyIf {
-			if (!providers.environmentVariable("MAVEN_URL").present) return true
-			def artifactPath = "https://maven.fabricmc.net/net/fabricmc/fabric-api/${projectName}/${projectVersion}/${projectName}-${projectVersion}.pom"
-			boolean exists = HttpClient.newHttpClient().withCloseable { client ->
-				def request = HttpRequest.newBuilder()
-					.uri(URI.create(artifactPath))
-					.method("HEAD", HttpRequest.BodyPublishers.noBody())
-					.build()
-				def response = client.send(request, HttpResponse.BodyHandlers.discarding())
-				response.statusCode() == 200
-			}
-			if (exists) {
-				logger.lifecycle("${projectName}-${projectVersion}.pom has already been published")
-			} else {
-				logger.lifecycle("${projectName}-${projectVersion}.pom does not exist, publishing")
-			}
-			return !exists
-		}
-	}
-
-	javadoc.enabled = false
 }
 
-subprojects.each {
-	if (metaProjects.contains(it.name)) return
-	remapJar.dependsOn("${it.path}:remapJar")
-}
 
+// These modules are not included in the fat jar, maven will resolve them via the pom.
 def devOnlyModules = [
 	"fabric-client-gametest-api-v1",
 	"fabric-gametest-api-v1",
 ]
 
 dependencies {
-	afterEvaluate {
-		subprojects.each {
-			if (metaProjects.contains(it.name)) return
-			api project(path: "${it.path}", configuration: "namedElements")
+	subprojects.each {
+		if (metaProjects.contains(it.name)) {
+			return
 		}
+
+		api project(path: "${it.path}")
 	}
 }
 
@@ -259,9 +236,7 @@ dependencies {
 	}
 }
 
-remapJar {
-	nestedJars.from configurations.nestedJars
-}
+loom.nestJars(tasks.named("jar"), configurations.nestedJars)
 
 // Attempt to create a single jar with all files from all nested jars, this will fail if there are duplicate files.
 tasks.register("checkNoDuplicateFiles", Zip) {
@@ -278,14 +253,3 @@ tasks.register("checkNoDuplicateFiles", Zip) {
 }
 
 check.dependsOn "checkNoDuplicateFiles"
-
-tasks.register('checkVersion') {
-	doFirst {
-		def xml = new URL("https://maven.fabricmc.net/net/fabricmc/fabric-api/fabric-api/maven-metadata.xml").text
-		def metadata = new groovy.xml.XmlSlurper().parseText(xml)
-		def versions = metadata.versioning.versions.version*.text();
-		if (versions.contains(version)) {
-			throw new RuntimeException("${version} has already been released!")
-		}
-	}
-}

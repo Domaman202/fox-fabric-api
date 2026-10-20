@@ -102,13 +102,45 @@ Fabric API makes strong backwards compatibility guarantees, by which contributor
 - Avoid exposing java `record`s as public API.
     - Records expose more than is necessary for most APIs, which makes them difficult to evolve.
     - Prefer to expose an interface that is implemented by an impl record.
+- Always make constructors `private` in utility classes.
+    - Utility classes are never instantiated, so ensure that they are final and their constructors are made `private`.
+- Avoid creating constant interfaces or creating an interface that is never implemented and intended only to hold `static final` fields.
+    - Constant interfaces confuse users by suggesting they are intended to be implemented.
+    - This is a common Java anti-pattern.
+    - Use a utility class instead.
+    ```java
+    public final class FooEvents {
+        public static final Event<Allow> ALLOW = ...;
+        public static final Event<Before> BEFORE = ...;
+        public static final Event<After> AFTER = ...;
+    
+        @FunctionalInterface
+        public interface Allow {
+            boolean allowFoo(/* relevant parameters */);
+        }
+    
+        @FunctionalInterface
+        public interface Before {
+            void beforeFoo(/* relevant parameters */);
+        }
+    
+        @FunctionalInterface
+        public interface Two {
+            void afterFoo(/* relevant parameters */);
+        }
+    
+        // Holder class is not meant for instantiation.
+        private FooEvents() {
+        }
+    }
+    ```
 
 ### API design patterns to consider
 
 - Transitive Access Wideners (TAWs) should be used to expose access to private or protected members in vanilla classes.
     - Most TAWs should go in the dedicated `fabric-transitive-access-wideners-v1` module.
         - Remember to add the `transitive-` prefix, otherwise dependent mods will not see the access modifications.
-        - Some TAWs such as Block subclass constructors are automatically generated. Make sure that you don't edit the `.accesswidener` file in `src` directly. Rather edit the template file (`template.accesswidener`) and run the `gradlew generateAccessWidener` task to update the generated file.
+        - Some TAWs such as Block subclass constructors are automatically generated. Make sure that you don't edit the `.classtweaker` file in `src` directly. Rather edit the template file (`template.classtweaker`) and run the `gradlew generateClassTweaker` task to update the generated file.
         - Large amounts of TAWs for a specific purpose can be included in another module, as is the case for the data generation API, for example.
     - Do **not** expose TAWs for functions that take a `String` identifier.
         - This makes it too easy to forget the mod ID namespace, so the identifier would often end up in the vanilla `minecraft` namespace.
@@ -197,7 +229,7 @@ public final class FooEvents {
     }
 
     // Holder class is not meant for instantiation.
-    private ExampleEvents() {
+    private FooEvents() {
     }
 }
 ```
